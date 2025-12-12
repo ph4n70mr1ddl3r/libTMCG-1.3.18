@@ -24,325 +24,63 @@
 #endif
 #include <libTMCG.hh>
 
-#ifdef FORKING
-
 #include <exception>
 #include <sstream>
 #include <vector>
-#include <algorithm>
 #include <cassert>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/wait.h>
 
 #include "test_helper.h"
-#include "pipestream.hh"
 
 #undef NDEBUG
 #define PLAYERS 2
 #define DECKSIZE 52
-#define FLOPSIZE 5
+#define FLOP_CARDS 3
+#define TURN_CARDS 1
+#define RIVER_CARDS 1
 
-int pipefd[PLAYERS][PLAYERS][2];
-pid_t pid[PLAYERS];
-
-void start_instance
-	(std::istream& vtmf_str, size_t player)
+struct PlayerCtx
 {
-	if ((pid[player] = fork()) < 0)
-		perror("t-poker-noninteractive (fork)");
-	else
+	size_t id;
+	SchindelhauerTMCG *tmcg;
+	BarnettSmartVTMF_dlog *vtmf;
+	GrothVSSHE *vsshe;
+};
+
+static void open_card_for_player
+	(PlayerCtx &owner, const std::vector<PlayerCtx> &others, VTMF_Card &card,
+	 size_t &out_type)
+{
+	owner.tmcg->TMCG_SelfCardSecret(card, owner.vtmf);
+	for (const auto &p : others)
 	{
-		if (pid[player] == 0)
+		if (p.id == owner.id)
+			continue;
+		std::istringstream dummy_in("");
+		std::stringstream proof;
+		p.tmcg->TMCG_ProveCardSecret(card, p.vtmf, dummy_in, proof);
+		std::istringstream proof_in(proof.str());
+		std::ostringstream dummy_out;
+		if (!owner.tmcg->TMCG_VerifyCardSecret(card, owner.vtmf, proof_in,
+			dummy_out))
 		{
-			try
-			{
-				/* BEGIN child code: participant P_i */
-			
-				// create pipe streams between all players
-				ipipestream *P_in[PLAYERS];
-				opipestream *P_out[PLAYERS];
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					P_in[i] = new ipipestream(pipefd[i][player][0]);
-					P_out[i] = new opipestream(pipefd[player][i][1]);
-				}
-			
-				// create TMCG and VTMF instances
-				start_clock();
-				SchindelhauerTMCG *tmcg = new SchindelhauerTMCG(64, PLAYERS, 6);
-				BarnettSmartVTMF_dlog *vtmf = new BarnettSmartVTMF_dlog(vtmf_str);
-				if (!vtmf->CheckGroup())
-				{
-					std::cout << "P_" << player << ": " <<
-						"Group G was not correctly generated!" << std::endl;
-					exit(-1);
-				}
-				stop_clock();
-				std::cout << "P_" << player << ": " << elapsed_time() <<
-					std::endl;
-			
-				// create and exchange VTMF keys
-				start_clock();
-				vtmf->KeyGenerationProtocol_GenerateKey();
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					if (i != player)
-						vtmf->KeyGenerationProtocol_PublishKey(*P_out[i]);
-				}
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					if (i != player)
-					{
-						if (!vtmf->KeyGenerationProtocol_UpdateKey(*P_in[i]))
-						{
-							std::cout << "P_" << player << ": Public key of" <<
-								" P_" << i << " was not correctly generated!" <<
-								std::endl;
-							exit(-1);
-						}
-					}
-				}
-				vtmf->KeyGenerationProtocol_Finalize();
-				stop_clock();
-				std::cout << "P_" << player << ": " << elapsed_time() <<
-					std::endl;
-			
-				// VSSHE
-				GrothVSSHE *vsshe;
-				if (player == 0)
-				{
-					// create and publish VSSHE instance as leader
-					start_clock();
-					vsshe = new GrothVSSHE(DECKSIZE, 
-						vtmf->p, vtmf->q, vtmf->k, vtmf->g, vtmf->h);
-					if (!vsshe->CheckGroup())
-					{
-						std::cout << "P_" << player << ": VSSHE instance" <<
-							" was not correctly generated!" << std::endl;
-						exit(-1);
-					}
-					for (size_t i = 1; i < PLAYERS; i++)
-						vsshe->PublishGroup(*P_out[i]);
-					stop_clock();
-					std::cout << "P_" << player << ": " << elapsed_time() <<
-						std::endl;
-				}
-				else
-				{
-					// receive and create VSSHE instance as non-leader
-					start_clock();
-					vsshe = new GrothVSSHE(DECKSIZE, *P_in[0]);
-					if (!vsshe->CheckGroup())
-					{
-						std::cout << "P_" << player << ": VSSHE instance" <<
-							" was not correctly generated!" << std::endl;
-						exit(-1);
-					}
-					if (mpz_cmp(vtmf->h, vsshe->com->h))
-					{
-						std::cout << "VSSHE: common public key does not" <<
-							" match!" << std::endl;
-						exit(-1);
-					}
-					if (mpz_cmp(vtmf->q, vsshe->com->q))
-					{
-						std::cout << "VSSHE: subgroup order does not" <<
-							" match!" << std::endl;
-						exit(-1);
-					}
-					if (mpz_cmp(vtmf->p, vsshe->p) ||
-						mpz_cmp(vtmf->q, vsshe->q) || 
-						mpz_cmp(vtmf->g, vsshe->g) ||
-						mpz_cmp(vtmf->h, vsshe->h))
-					{
-						std::cout << "VSSHE: encryption scheme does not" <<
-							" match!" << std::endl;
-						exit(-1);
-					}
-					stop_clock();
-					std::cout << "P_" << player << ": " << elapsed_time() <<
-						std::endl;
-				}
-			
-				// create and shuffle the deck
-				start_clock();
-				TMCG_OpenStack<VTMF_Card> deck;
-				for (size_t type = 0; type < DECKSIZE; type++)
-				{
-					VTMF_Card c;
-					tmcg->TMCG_CreateOpenCard(c, vtmf, type);
-					deck.push(type, c);
-				}
-				TMCG_Stack<VTMF_Card> s;
-				s.push(deck);
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					TMCG_Stack<VTMF_Card> s2;
-					if (i == player)
-					{
-						TMCG_StackSecret<VTMF_CardSecret> ss;
-						std::stringstream lej;
-						tmcg->TMCG_CreateStackSecret(ss, false, s.size(), vtmf);
-						tmcg->TMCG_MixStack(s, s2, ss, vtmf);
-						tmcg->TMCG_ProveStackEquality_Groth_noninteractive(s,
-							s2, ss, vtmf, vsshe, lej);
-						for (size_t i2 = 0; i2 < PLAYERS; i2++)
-						{
-							if (i2 == player)
-								continue;
-							*P_out[i2] << s2 << std::endl;
-							*P_out[i2] << lej.str();
-						}
-					}
-					else
-					{
-						*P_in[i] >> s2;
-						if (!P_in[i]->good())
-						{
-							std::cout << "Read or parse error!" << std::endl;
-							exit(-1);
-						}
-						if (!tmcg->TMCG_VerifyStackEquality_Groth_noninteractive(s,
-							s2, vtmf, vsshe, *P_in[i]))
-						{
-							std::cout << "Shuffle verification failed!" <<
-								std::endl;
-							exit(-1);
-						}
-					}
-					s = s2;
-				}
-				stop_clock();
-				std::cout << "P_" << player << ": " << elapsed_time() <<
-					std::endl;
-			
-				// drawing two cards for each player
-				start_clock();
-				TMCG_Stack<VTMF_Card> hand[PLAYERS];
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					VTMF_Card c1, c2;
-					s.pop(c1), s.pop(c2);
-					hand[i].push(c1), hand[i].push(c2);
-				}
-				TMCG_OpenStack<VTMF_Card> private_hand;
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					if (i == player)
-					{
-						for (size_t k = 0; k < hand[i].size(); k++)
-						{
-							tmcg->TMCG_SelfCardSecret(hand[i][k], vtmf);
-							for (size_t i2 = 0; i2 < PLAYERS; i2++)
-							{
-								if (i2 == player)
-									continue;
-								if (!tmcg->TMCG_VerifyCardSecret(hand[i][k],
-									vtmf, *P_in[i2], *P_out[i2]))
-								{
-									std::cout << "Card verification failed!" <<
-										std::endl;
-									exit(-1);
-								}
-							}
-							size_t type = tmcg->TMCG_TypeOfCard(hand[i][k],
-								vtmf);
-							private_hand.push(type, hand[i][k]);
-						}
-					}
-					else
-					{
-						for (size_t k = 0; k < hand[i].size(); k++)
-						{
-							tmcg->TMCG_ProveCardSecret(hand[i][k], vtmf,
-								*P_in[i], *P_out[i]);
-						}
-					}
-				}
-				stop_clock();
-				std::cout << "P_" << player << ": " << elapsed_time() <<
-					std::endl;
-				std::cout << "P_" << player << ": my cards are " <<
-					private_hand[0].first << " and " <<
-					private_hand[1].first << std::endl;
-			
-				// drawing the flop
-				start_clock();
-				TMCG_Stack<VTMF_Card> flop;
-				VTMF_Card c;
-				for (size_t i = 0; i < FLOPSIZE; i++)
-				{
-					s.pop(c), flop.push(c);
-				}
-				TMCG_OpenStack<VTMF_Card> open_flop;
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					if (i == player)
-					{
-						for (size_t k = 0; k < flop.size(); k++)
-						{
-							tmcg->TMCG_SelfCardSecret(flop[k], vtmf);
-							for (size_t i2 = 0; i2 < PLAYERS; i2++)
-							{
-								if (i2 == player)
-									continue;
-								if (!tmcg->TMCG_VerifyCardSecret(flop[k], vtmf,
-									*P_in[i2], *P_out[i2]))
-								{
-									std::cout << "Card verification failed!" <<
-										std::endl;
-									exit(-1);
-								}
-							}
-							size_t type = tmcg->TMCG_TypeOfCard(flop[k], vtmf);
-							open_flop.push(type, flop[k]);
-						}
-					}
-					else
-					{
-						for (size_t k = 0; k < flop.size(); k++)
-						{
-							tmcg->TMCG_ProveCardSecret(flop[k], vtmf,
-								*P_in[i], *P_out[i]);
-						}
-					}
-				}
-				stop_clock();
-				std::cout << "P_" << player << ": " << elapsed_time() <<
-					std::endl;
-				std::cout << "P_" << player << ": flop cards are ";
-				for (size_t i = 0; i < FLOPSIZE; i++)
-					std::cout << open_flop[i].first << " ";
-				std::cout << std::endl;
-			
-				// release TMCG, VTMF, and VSSHE instances
-				delete tmcg, delete vtmf, delete vsshe;
-			
-				// release pipe streams
-				size_t numRead = 0, numWrite = 0;
-				for (size_t i = 0; i < PLAYERS; i++)
-				{
-					numRead += P_in[i]->get_numRead() + P_out[i]->get_numRead();
-					numWrite += P_in[i]->get_numWrite() + P_out[i]->get_numWrite();
-					delete P_in[i], delete P_out[i];
-				}
-				std::cout << "P_" << player << ": numRead = " << numRead <<
-					" numWrite = " << numWrite << std::endl;
-			
-				std::cout << "P_" << player << ": exit(0)" << std::endl;
-				exit(0);
-				/* END child code: participant P_i */
-			}
-			catch (std::exception& e)
-			{
-				std::cerr << "exception catched with what = " << e.what() <<
-					std::endl;
-				exit(-1);
-			}
+			throw std::runtime_error("Card verification failed");
 		}
-		else
-			std::cout << "fork() = " << pid[player] << std::endl;
+	}
+	out_type = owner.tmcg->TMCG_TypeOfCard(card, owner.vtmf);
+}
+
+static void open_public_cards
+	(PlayerCtx &opener, const std::vector<PlayerCtx> &players,
+	 TMCG_Stack<VTMF_Card> &encrypted_cards, size_t count,
+	 TMCG_OpenStack<VTMF_Card> &open_out)
+{
+	for (size_t i = 0; i < count; i++)
+	{
+		VTMF_Card c;
+		encrypted_cards.pop(c);
+		size_t type = 0;
+		open_card_for_player(opener, players, c, type);
+		open_out.push(type, c);
 	}
 }
 
@@ -353,71 +91,205 @@ int main
 	assert(init_libTMCG());
 
 	try
-	{	
-		BarnettSmartVTMF_dlog *vtmf;
-		std::stringstream vtmf_str;
-
-		// create and check VTMF instance
+	{
+		// Common VTMF group setup.
 		std::cout << "BarnettSmartVTMF_dlog()" << std::endl;
-		vtmf = new BarnettSmartVTMF_dlog();
+		BarnettSmartVTMF_dlog *group_vtmf = new BarnettSmartVTMF_dlog();
 		std::cout << "vtmf.CheckGroup()" << std::endl;
 		start_clock();
-		assert(vtmf->CheckGroup());
+		assert(group_vtmf->CheckGroup());
 		stop_clock();
 		std::cout << elapsed_time() << std::endl;
-	
-		// publish VTMF instance as string stream
-		std::cout << "vtmf.PublishGroup(vtmf_str)" << std::endl;
-		vtmf->PublishGroup(vtmf_str);
-	
-		// open pipes
-		for (size_t i = 0; i < PLAYERS; i++)
-		{
-			for (size_t j = 0; j < PLAYERS; j++)
-			{
-				if (pipe(pipefd[i][j]) < 0)
-					perror("t-poker-noninteractive (pipe)");
-			}
-		}
-	
-		// start poker childs
-		for (size_t i = 0; i < PLAYERS; i++)
-			start_instance(vtmf_str, i);
-	
-		// wait for poker childs and close pipes
-		bool result = true;
-		for (size_t i = 0; i < PLAYERS; i++)
-		{
-			int wstatus = 0;
-			std::cerr << "waitpid(" << pid[i] << ")" << std::endl;
-			if (waitpid(pid[i], &wstatus, 0) != pid[i])
-				perror("t-poker-noninteractive (waitpid)");
-			if (!WIFEXITED(wstatus))
-			{
-				std::cerr << "ERROR: ";
-				if (WIFSIGNALED(wstatus))
-				{
-					std::cerr << pid[i] << " terminated by signal " <<
-						WTERMSIG(wstatus) << std::endl;
-				}
-				if (WCOREDUMP(wstatus))
-					std::cerr << pid[i] << " dumped core" << std::endl;
-				result = false;
-			}
-			for (size_t j = 0; j < PLAYERS; j++)
-			{
-				if ((close(pipefd[i][j][0]) < 0) || (close(pipefd[i][j][1]) < 0))
-					perror("t-poker-noninteractive (close)");
-			}
-		}
-	
-		// release VTMF instance
-		delete vtmf;
 
-		if (result)
-			return 0;
-		else
-			return 1;
+		std::stringstream vtmf_str;
+		std::cout << "vtmf.PublishGroup(vtmf_str)" << std::endl;
+		group_vtmf->PublishGroup(vtmf_str);
+
+		// Create player contexts (single-process, ordered simulation).
+		std::vector<PlayerCtx> players;
+		players.reserve(PLAYERS);
+		for (size_t i = 0; i < PLAYERS; i++)
+		{
+			start_clock();
+			SchindelhauerTMCG *tmcg = new SchindelhauerTMCG(64, PLAYERS, 6);
+			std::stringstream vtmf_copy(vtmf_str.str());
+			BarnettSmartVTMF_dlog *vtmf = new BarnettSmartVTMF_dlog(vtmf_copy);
+			if (!vtmf->CheckGroup())
+				throw std::runtime_error("Group G was not correctly generated");
+			stop_clock();
+			std::cout << "P_" << i << ": " << elapsed_time() << std::endl;
+			players.push_back({i, tmcg, vtmf, NULL});
+		}
+
+		// Key generation protocol in proper order.
+		std::cout << "=== Key Generation ===" << std::endl;
+		start_clock();
+		for (auto &p : players)
+			p.vtmf->KeyGenerationProtocol_GenerateKey();
+		for (size_t i = 0; i < PLAYERS; i++)
+		{
+			for (size_t j = 0; j < PLAYERS; j++)
+			{
+				if (i == j)
+					continue;
+				std::stringstream msg;
+				players[i].vtmf->KeyGenerationProtocol_PublishKey(msg);
+				std::stringstream msg_in(msg.str());
+				if (!players[j].vtmf->KeyGenerationProtocol_UpdateKey(msg_in))
+					throw std::runtime_error("Public key update failed");
+			}
+		}
+		for (auto &p : players)
+			p.vtmf->KeyGenerationProtocol_Finalize();
+		stop_clock();
+		std::cout << "keys: " << elapsed_time() << std::endl;
+
+		// VSSHE setup (player 0 is leader).
+		std::cout << "=== VSSHE Setup ===" << std::endl;
+		start_clock();
+		players[0].vsshe = new GrothVSSHE(DECKSIZE,
+			players[0].vtmf->p, players[0].vtmf->q, players[0].vtmf->k,
+			players[0].vtmf->g, players[0].vtmf->h);
+		if (!players[0].vsshe->CheckGroup())
+			throw std::runtime_error("VSSHE leader group check failed");
+		std::stringstream vsshe_group;
+		players[0].vsshe->PublishGroup(vsshe_group);
+		for (size_t i = 1; i < PLAYERS; i++)
+		{
+			std::stringstream vsshe_in(vsshe_group.str());
+			players[i].vsshe = new GrothVSSHE(DECKSIZE, vsshe_in);
+			if (!players[i].vsshe->CheckGroup())
+				throw std::runtime_error("VSSHE non-leader group check failed");
+			if (mpz_cmp(players[i].vtmf->h, players[i].vsshe->com->h) ||
+				mpz_cmp(players[i].vtmf->q, players[i].vsshe->com->q))
+			{
+				throw std::runtime_error("VSSHE common key mismatch");
+			}
+		}
+		stop_clock();
+		std::cout << "vsshe: " << elapsed_time() << std::endl;
+
+		// Create initial public deck and encrypted stack.
+		std::cout << "=== Deck Creation ===" << std::endl;
+		start_clock();
+		TMCG_OpenStack<VTMF_Card> deck_open;
+		for (size_t type = 0; type < DECKSIZE; type++)
+		{
+			VTMF_Card c;
+			players[0].tmcg->TMCG_CreateOpenCard(c, players[0].vtmf, type);
+			deck_open.push(type, c);
+		}
+		TMCG_Stack<VTMF_Card> s_current;
+		s_current.push(deck_open);
+		stop_clock();
+		std::cout << "deck: " << elapsed_time() << std::endl;
+
+		// Sequential shuffling with proofs.
+		std::cout << "=== Shuffling ===" << std::endl;
+		for (size_t shuffler = 0; shuffler < PLAYERS; shuffler++)
+		{
+			std::cout << "P_" << shuffler << " shuffles" << std::endl;
+			start_clock();
+			TMCG_Stack<VTMF_Card> s_next;
+			TMCG_StackSecret<VTMF_CardSecret> ss;
+			std::stringstream proof;
+			players[shuffler].tmcg->TMCG_CreateStackSecret(ss, false,
+				s_current.size(), players[shuffler].vtmf);
+			players[shuffler].tmcg->TMCG_MixStack(s_current, s_next, ss,
+				players[shuffler].vtmf);
+			players[shuffler].tmcg->TMCG_ProveStackEquality_Groth_noninteractive(
+				s_current, s_next, ss, players[shuffler].vtmf,
+				players[shuffler].vsshe, proof);
+
+			for (size_t verifier = 0; verifier < PLAYERS; verifier++)
+			{
+				if (verifier == shuffler)
+					continue;
+				std::stringstream proof_in(proof.str());
+				if (!players[verifier].tmcg->
+					TMCG_VerifyStackEquality_Groth_noninteractive(
+						s_current, s_next, players[verifier].vtmf,
+						players[verifier].vsshe, proof_in))
+				{
+					throw std::runtime_error("Shuffle verification failed");
+				}
+			}
+			s_current = s_next;
+			stop_clock();
+			std::cout << "shuffle time: " << elapsed_time() << std::endl;
+		}
+
+		// Deal hole cards (preflop).
+		std::cout << "=== Preflop ===" << std::endl;
+		start_clock();
+		TMCG_Stack<VTMF_Card> hand_enc[PLAYERS];
+		for (size_t i = 0; i < PLAYERS; i++)
+		{
+			VTMF_Card c1, c2;
+			s_current.pop(c1);
+			s_current.pop(c2);
+			hand_enc[i].push(c1);
+			hand_enc[i].push(c2);
+		}
+
+		for (size_t i = 0; i < PLAYERS; i++)
+		{
+			TMCG_OpenStack<VTMF_Card> private_hand;
+			for (size_t k = 0; k < hand_enc[i].size(); k++)
+			{
+				size_t type = 0;
+				open_card_for_player(players[i], players, hand_enc[i][k], type);
+				private_hand.push(type, hand_enc[i][k]);
+			}
+			std::cout << "P_" << i << ": my cards are "
+				<< private_hand[0].first << " and "
+				<< private_hand[1].first << std::endl;
+		}
+		stop_clock();
+		std::cout << "preflop open: " << elapsed_time() << std::endl;
+
+		// Reveal community cards in order: flop, turn, river.
+		TMCG_OpenStack<VTMF_Card> community_open;
+
+		std::cout << "=== Flop ===" << std::endl;
+		start_clock();
+		open_public_cards(players[0], players, s_current, FLOP_CARDS,
+			community_open);
+		stop_clock();
+		std::cout << "flop open: " << elapsed_time() << std::endl;
+		std::cout << "flop cards are ";
+		for (size_t i = 0; i < FLOP_CARDS; i++)
+			std::cout << community_open[i].first << " ";
+		std::cout << std::endl;
+
+		std::cout << "=== Turn ===" << std::endl;
+		start_clock();
+		open_public_cards(players[0], players, s_current, TURN_CARDS,
+			community_open);
+		stop_clock();
+		std::cout << "turn open: " << elapsed_time() << std::endl;
+		std::cout << "turn card is " << community_open[FLOP_CARDS].first
+			<< std::endl;
+
+		std::cout << "=== River ===" << std::endl;
+		start_clock();
+		open_public_cards(players[0], players, s_current, RIVER_CARDS,
+			community_open);
+		stop_clock();
+		std::cout << "river open: " << elapsed_time() << std::endl;
+		std::cout << "river card is "
+			<< community_open[FLOP_CARDS + TURN_CARDS].first << std::endl;
+
+		// release instances
+		for (auto &p : players)
+		{
+			delete p.tmcg;
+			delete p.vtmf;
+			delete p.vsshe;
+		}
+		delete group_vtmf;
+
+		return 0;
 	}
 	catch (std::exception& e)
 	{
@@ -425,16 +297,3 @@ int main
 		return -1;
 	}
 }
-
-#else
-
-int main
-	(int argc, char **argv)
-{
-	assert(((argc > 0) && (argv != NULL)));
-	std::cout << "test skipped" << std::endl;
-	return 77;
-}
-
-#endif
-
