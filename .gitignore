@@ -1,7 +1,19 @@
-config.log
-config.status
-libTMCG_config.h
-libtool
+# CMake / build output
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
 Makefile
-stamp-h1
-libTMCG-config
+compile_commands.json
+.ninja_log
+.ninja_deps
+
+# Build artifacts
+*.o
+*.a
+*.so*
+*.dylib
+*.exe
+
+# Built demo
+t-poker-noninteractive
