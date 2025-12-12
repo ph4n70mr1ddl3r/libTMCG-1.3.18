@@ -1,0 +1,272 @@
+Copyright (C)  2006--2009, 2015--2019 Heiko Stamer <HeikoStamer@gmx.net>
+
+Permission is granted to copy, distribute and/or modify this document under
+the terms of the GNU Free Documentation License, Version 1.3 or any later
+version published by the Free Software Foundation; with no Invariant Sections,
+no Front-Cover Texts, and no Back-Cover Texts. A copy of the license is included
+in the sources of this package and additionally can be obtained from Internet
+<https://www.gnu.org/licenses>.
+
+* [2019-05-31] release 1.3.18 of LibTMCG
+* [2019-05-23] RFC4880: changed TMCG_OpenPGP_PrivateSubkey::Decrypt() in order
+               to handle v5 keys correctly w.r.t. ECDH decryption
+* [2019-05-23] RFC4880: changed KDFCompute() according to RFC4880bis-06
+* [2019-05-22] RFC4880: stored packet version within TMCG_OpenPGP_Message
+* [2019-05-20] RFC4880: fixed wrong iterated KDF computation in S2KCompute()
+* [2019-05-20] RFC4880: changed interface of HashCompute()
+* [2019-05-15] RFC4880: added public member version to TMCG_OpenPGP_PKESK
+* [2019-05-08] RFC4880: added another shape of VerfifyData() for v5 signatures
+* [2019-05-01] RFC4880: removed unnecessary interfaces for fingerprints/key IDs
+* [2019-05-01] RFC4880: added support of v5 keys to TMCG_OpenPGP_Keyring
+* [2019-05-01] RFC4880: added support of v5 keys in parsing functions
+* [2019-04-30] RFC4880: changed PacketSigPrepareDetachedSignature() to follow
+               requirements of RFC4880bis-06 regarding the issuer subpacket
+* [2019-04-30] RFC4880: added PacketSigPrepareDetachedSignatureV5()
+* [2019-04-29] RFC4880: fixed wrong parsing of date within Literal Data Packet
+* [2019-04-29] RFC4880: added BinaryDocumentHashV5(), TextDocumentHashV5()
+* [2019-04-27] RFC4880: fixed memory leak in PacketDecode() found by fuzzying
+* [2019-04-21] RFC4880: added StandaloneHashV5(), CertificationHashV5()
+* [2019-04-21] RFC4880: added PacketScalar[Four,Eight]Encode(), KeyHashV5()
+* [2019-04-21] RFC4880: added PacketSubEncodeV5(), PacketPubEncodeV5()
+* [2019-04-21] RFC4880: changed TMCG_OpenPGP_PrivateSubkey, TMCG_OpenPGP_Prvkey
+* [2019-04-21] RFC4880: changed TMCG_OpenPGP_Subkey, TMCG_OpenPGP_Pubkey
+* [2019-04-21] RFC4880: added KeyidComputerV5(), FingerprintComputePrettyV5()
+* [2019-04-19] RFC4880: added FingerprintComputeV5() and version 5 key format
+* [2019-01-27] RFC4880: added missed GCRY error source by using gcry_error()
+* [2019-01-22] release 1.3.17 of LibTMCG
+* [2019-01-19] VTMF,ASTC,DKG,VRHE,EOTP,COM,VSS: make CheckGroup() more robust
+* [2019-01-19] VSSHE: security bugfix for Verify_[non]interactive_[_publiccoin]
+* [2019-01-16] mpz_spowm: added check for correct base in fast exponentiation
+* [2019-01-16] mpz_sqrtm: remove unused parameter in tmcg_mpz_qrmn_p()
+* [2019-01-16] configure.ac: added compiler option "-Wextra"
+* [2019-01-05] mpz_sprime: added tmcg_mpz_smprime() with increased B = 80000
+* [2018-12-23] RFC4880: changed type of tmcg_openpgp_mem_alloc to unsigned long
+* [2018-12-02] release 1.3.16 of LibTMCG
+* [2018-12-02] changed constant TMCG_MAX_CARDS (decreased by factor 2)
+* [2018-12-02] changed formulas for TMCG_MAX_VALUE_CHARS and TMCG_MAX_KEY_CHARS
+* [2018-11-25] RFC4880: added support of Preferred AEAD Algorithms [RFC 4880bis]
+* [2018-11-23] RFC4880: added output for key usage "timestamping" [RFC 4880bis]
+* [2018-11-21] RFC4880: changed tmcg_openpgp_byte_t: unsigned char -> uint8_t
+* [2018-11-18] RFC4880: added PacketAeadEncode() [RFC 4880bis]
+* [2018-11-18] RFC4880: added SymmetricDecryptAEAD() and SymmetricEncryptAEAD()
+* [2018-11-12] changed formula for TMCG_MAX_KEYBITS (increased by factor 2)
+* [2018-11-12] mpz_srandom: bugfix in Botan code branch of mpz_grandomb()
+* [2018-11-11] release 1.3.15 of LibTMCG
+* [2018-11-10] RFC4880: size changed for revocationkey_fingerprint [RFC 4880bis]
+* [2018-11-10] RFC4880: fixes accumulation of key flags and features
+* [2018-11-02] RFC4880: decreased lower bound for x to 245 bits in Weak()
+* [2018-11-02] mpz_srandom: cleaned tmcg_mpz_grandomm() and tmcg_mpz_grandomb()
+* [2018-11-02] mpz_srandom: changed interface of tmcg_mpz_ssrandomm_cache()
+* [2018-11-01] RFC4880: added Export() for TMCG_OpenPGP_Prvkey
+* [2018-10-30] RFC4880: added generic VerifyData() for TMCG_OpenPGP_Signature
+* [2018-10-29] RFC4880: store included signatures within TMCG_OpenPGP_Message
+* [2018-10-29] RFC4880: removed interface CheckMDC() from TMCG_OpenPGP_Message
+* [2018-10-28] RFC4880: include MDC verification in function Decrypt()
+* [2018-10-28] RFC4880: fixes the selected data/packets for computing the MDC
+* [2018-10-25] aiounicast_select: handle error EINTR during call of select
+* [2018-10-21] t-rfc4880: check libgcrypt version before testing Ed25519 key
+* [2018-10-10] RBC: used some standard exceptions for error handling
+* [2018-09-21] DKG, ASTC, VSS: used some standard exceptions for error handling
+* [2018-09-20] mpz_srandom: important bugfix for use of additional Botan RNG
+* [2018-09-16] mpz_helper: used some standard exceptions for error handling
+* [2018-09-16] mpz_sqrtm: used some standard exceptions for error handling
+* [2018-09-16] mpz_spowm: used some standard exceptions for error handling
+* [2018-09-16] mpz_srandom: used some standard exceptions for error handling
+* [2018-09-09] release 1.3.14 of LibTMCG
+* [2018-09-06] RFC4880: added Check() and Reduce() for TMCG_OpenPGP_Keyring
+* [2018-09-03] RFC4880: added tmcg_openpgp_secure_string[stream]_t
+* [2018-09-03] RFC4880: added 1-/2-octet length format in PacketLengthEncode()
+* [2018-08-31] RFC4880: added support for EdDSA (algorithm 22) from RFC 4880bis
+* [2018-08-28] RFC4880: added AccumulateRevocationCodes()
+* [2018-08-28] RFC4880: added tmcg_openpgp_revcode_t
+* [2018-08-24] RFC4880: added types and parameters for Notation Data
+* [2018-08-23] RFC4880: added StandaloneHash[V3]() and PacketBodyExtract()
+* [2018-08-23] RFC4880: added PacketSigPrepareTimestampSignature()
+* [2018-08-22] RFC4880: reorder preferred hash algorithms by hash length
+* [2018-08-22] RFC4880: added support for creating Issuer Fingerprint subpacket
+* [2018-08-18] RFC4880: added List() for TMCG_OpenPGP_Keyring
+* [2018-08-17] RFC4880: added types and functions for use of secure memory
+* [2018-08-16] init_libTMCG(): added parameter to enforce use of secure memory
+* [2018-08-15] RFC4880: added Asymmetric[De|En]cryptECDH() from RFC 6637
+* [2018-08-11] RFC4880: added support for verifying text document signatures
+* [2018-08-09] RFC4880: added Issuer Fingerprint subpacket from RFC 4880bis-04
+* [2018-08-09] RFC4880: added Export() for TMCG_OpenPGP_Pubkey
+* [2018-08-09] RFC4880: added new interfaces for TMCG_OpenPGP_Keyring
+* [2018-08-05] RFC4880: changed parsing strategy in MessageParse()
+* [2018-08-05] RFC4880: small fixes in ArmorDecode() and PacketLengthDecode()
+* [2018-07-14] RFC4880: added ECC algorithms 18 and 19 from RFC 6637
+* [2018-06-24] release 1.3.13 of LibTMCG
+* [2018-06-23] mpz_sprime: avoid waste of good random numbers
+* [2018-06-22] RFC4880: added tmcg_openpgp_stringtokey_t
+* [2018-06-21] RFC4880: added AlgorithmHashTextName(), DashEscapeFile()
+* [2018-06-19] RFC4880: added some stuff for cleartext signature framework
+* [2018-06-17] mpz_srandom: use additional Botan RNG, if configured --with-botan
+* [2018-06-15] mpz_sprime: added non-incremental generator for (safe) primes
+* [2018-06-13] VTMF: incomplete comparison in "check size of $c$" fixed 
+* [2018-06-13] mpz_*: added prefix "tmcg_" to exported library functions
+* [2018-06-13] mpz_sqrtm: migrate source to C++ for using Botan interfaces
+* [2018-06-13] mpz_sprime: migrate source to C++ for using Botan interfaces
+* [2018-06-13] mpz_spowm: migrate source to C++ for using Botan interfaces
+* [2018-06-13] mpz_srandom: migrate source to C++ for using Botan interfaces
+* [2018-06-01] fell the requirement of libgcrypt version to >= 1.6.0
+* [2018-06-01] mpz_shash: emulate SHA3-256, if not available by libgcrypt
+* [2018-05-24] mpz_helper: added iostream operator << for gcry_mpi_t
+* [2018-05-23] RFC4880: added support for tElG in PrivateKeyBlockParse()
+* [2018-05-23] RFC4880: added support for tDSS/DSA in PrivateKeyBlockParse()
+* [2018-05-19] aiounicast: added PrintStatistics()
+* [2018-05-06] added autoconf feature (--with-botan) for optional Botan support
+* [2018-05-03] RFC4880: use secure memory for some of tmcg_openpgp_packet_ctx_t
+* [2018-05-03] RFC4880: added TMCG_OpenPGP_PKESK and TMCG_OpenPGP_SKESK
+* [2018-05-03] RFC4880: added TMCG_OpenPGP_Message and MessageParse()
+* [2018-05-01] RFC4880: added PrivateKeyBlockParse()
+* [2018-04-29] RFC4880: added TMCG_OpenPGP_PrivateSubKey, TMCG_OpenPGP_Prvkey
+* [2018-04-25] RFC4880: added TMCG_OpenPGP_UserAttribute (with opaque content)
+* [2018-04-25] RFC4880: changed CertificationHash() to support user attributes
+* [2018-04-24] RFC4880: added limit TMCG_OPENPGP_MAX_ALLOC for memory allocation
+* [2018-04-22] RFC4880: added support for Camellia cipher (cf. RFC 5581)
+* [2018-04-22] added abstract types tmcg_mpi_vector_t and tmcg_mpi_matrix_t
+* [2018-04-22] added abstract types tmcg_mpz_vector_t and tmcg_mpz_matrix_t
+* [2018-03-29] VTMF: added KeyGenerationProtocol_NumberOfKeys()
+* [2018-03-20] release 1.3.12 of LibTMCG
+* [2018-03-19] RFC4880: added PacketSigPrepareDesignatedRevoker()
+* [2018-03-18] RFC4880: added TMCG_OpenPGP_Keyring
+* [2018-03-17] RFC4880: increased robustness of rpos-detection in ArmorDecode()
+* [2018-03-15] RFC4880: added new type tmcg_openpgp_revkey_t
+* [2018-03-13] RFC4880: changed interface PacketSigPrepareDetachedSignature()
+* [2018-03-03] RFC4880: added SignatureParse()
+* [2018-03-02] RFC4880: added AsymmetricEncryptRSA() and AsymmetricDecryptRSA()
+* [2018-03-01] RFC4880: added Twofish, SHA384, and SHA512 to prefered algos
+* [2018-02-27] RFC4880: added no-modify key server preferences for self-sigs
+* [2018-02-25] RFC4880: fixes uninitialized context for unhashed subpackets
+* [2018-02-18] RFC4880: fixes format from "%M" to "%b" in gcry_sexp_build()
+* [2018-02-11] RFC4880: added TMCG_OpenPGP_Signature, ..., TMCG_OpenPGP_Pubkey
+* [2018-02-11] RFC4880: added PacketContextRelease() and PublicKeyBlockParse()
+* [2018-02-11] RFC4880: unified namespace of some types (e.g. tmcg_openpgp_)
+* [2018-02-10] added function mpz_lprime_prefix() for k-prefix tweak
+* [2018-02-10] improved strength of oracle hash function g() by second algo
+* [2018-02-10] raised the requirement of libgcrypt version to >= 1.7.0
+* [2018-02-09] mpz_shash: bugfix changes the output of hash function g()
+* [2018-02-08] release 1.3.11 of LibTMCG
+* [2018-01-26] init_libTMCG(): added libgcrypt self-test
+* [2018-01-26] init_libTMCG(): check for already initialized libgcrypt
+* [2018-01-23] RFC4880: introduced new enumeration type tmcg_openpgp_armor_t
+* [2018-01-22] RFC4880: added hash truncation for AsymmetricSignDSA()
+* [2018-01-21] RFC4880: added KeyRevocationHashV3()
+* [2018-01-16] RFC4880: increased buffer length for very large key sizes
+* [2018-01-16] RFC4880: added OctetsCompareConstantTime()
+* [2018-01-14] release 1.3.10 of LibTMCG
+* [2018-01-12] RFC4880: added PacketSigPrepareCertificationSignature()
+* [2018-01-10] RFC4880: added RSA encoding for PacketPubEncode()
+* [2018-01-09] RFC4880: added AsymmetricSignRSA() and AsymmetricVerifyRSA()
+* [2017-12-23] release 1.3.9 of LibTMCG
+* [2017-12-19] RFC4880: fixes bad interpretation of subpacket length encoding
+* [2017-12-17] RFC4880: fixes missing hash truncation in AsymmetricVerifyDSA()
+* [2017-12-08] release 1.3.8 of LibTMCG
+* [2017-12-06] RFC4880: improved error handling for unsupported public-key algos
+* [2017-12-05] RFC4880: increased S2K count to 0xAC (i.e. 1835008 iterations)
+* [2017-12-04] improved compiler optimization resilience of mpz_fspowm()
+* [2017-12-01] release 1.3.7 of LibTMCG
+* [2017-11-28] mpz_sqrtmp_r(), mpz_sqrtmp(), mpz_sqrtmp_fast(): fix memory leaks
+* [2017-11-27] RFC4880: fixes some buffer underflows in PacketDecode()
+* [2017-11-25] RFC4880: fixes some buffer underflows in SubpacketDecode()
+* [2017-11-25] release 1.3.6 of LibTMCG
+* [2017-11-25] RFC4880: added support for verification of some V3 signatures
+* [2017-11-23] improved timing attack resilience of mpz_spowm()
+* [2017-11-23] RFC4880: added return code for non-fatal errors in PacketDecode()
+* [2017-11-22] RFC4880: fixes a buffer overflow in SubpacketDecode()
+* [2017-11-22] RFC4880: added V3 signature packets for PacketDecode()
+* [2017-11-19] aiounicast: increase timeout of Send() for OpenBSD
+* [2017-11-18] release 1.3.5 of LibTMCG
+* [2017-11-18] RFC4880: fixes a bad return value in AsymmetricDecryptElgamal()
+* [2017-11-17] changed interfaces of mpz helper functions *gcry_mpi*
+* [2017-11-17] ASTC: fixes a bad mpz initialization in DSS::Sign()
+* [2017-11-17] VTMF: fixes a memory leak found by valgrind
+* [2017-11-16] RFC4880: fixes some memory leaks found by valgrind
+* [2017-11-16] RFC4880: fixes memory leak of mpi's from dummy container
+* [2017-11-16] RFC4880: added check for correct tag format of MDC packet
+* [2017-11-09] release 1.3.4 of LibTMCG
+* [2017-11-08] RFC4880: added features subpacket for MDC support
+* [2017-11-08] RFC4880: added experimental key type 107 (storing x_rvss->QUAL) 
+* [2017-10-31] removed DKG tools (now contained in a separated package DKGPG)
+* [2017-10-29] release 1.3.3 of LibTMCG
+* [2017-10-22] DKG-tools: added dkg-keyinfo to show some DSS key parameters
+* [2017-10-20] ASTC: added proactive security: refresh of key shares
+* [2017-10-17] ZVSS: added index conversion in Share()
+* [2017-10-04] DKG-tools: changed default TCP/IP port range start to 55000
+* [2017-10-01] Bugfix: VTMF check in dkg-decrypt due to FIPS domain parameters
+* [2017-10-01] Bugfix: type casting inside snprintf() of hash function g()
+* [2017-09-05] DKG-tools: fixes upper limit of t-resilience by option "-t"
+* [2017-09-03] release 1.3.2 of LibTMCG
+* [2017-08-23] DKG-tools: added FIPS 186-4 compliance for dkg-gencrs
+* [2017-08-20] RBC: implements a synchonization mechanism in Sync()
+* [2017-08-17] RBC: important bugfixes in Deliver() and DeliverFrom()
+* [2017-08-09] DKG-tools: added built-in TCP/IP message exchange (option "-H")
+* [2017-08-09] added configure feature --disable-dkgtools
+* [2017-08-07] DKG-tools: added option "-P" for setting aiounicast passwords
+* [2017-08-04] DKG-tools: changed storage of public data for shared keys (DKG)
+* [2017-07-30] DKG-tools: added dkg-revoke for revocation of a shared key
+* [2017-07-30] RFC4880: interface of PacketDecode() changed
+* [2017-07-28] RFC4880: added interfaces for key revocation signatures
+* [2017-07-27] DKG-tools: added dkg-sign for creating detached signatures
+* [2017-07-27] DKG-tools: added option "-e" for expiration of keys and sigs
+* [2017-07-27] RFC4880: more interfaces for signatures changed or added
+* [2017-07-23] RFC4880: interface of Packet{Pub,Sec}Encode() changed 
+* [2017-07-22] RFC4880: interface of PacketS{ub,sb}Encode() changed for DSA
+* [2017-07-22] DKG-tools: added option "-s" for generating a shared DSA key
+* [2017-07-21] added threshold DSS/DSA scheme of Canetti et al. (ASTC, DSS)
+* [2017-06-27] DKG-tools: improved interactive version of dkg-decrypt
+* [2017-06-20] added Pedersen's verifiable secret sharing (VSS) protocol
+* [2017-06-15] RBC: added sequence counter separation for subprotocols
+* [2017-06-12] RFC4880: added support for other hash algorithms in DSA
+* [2017-06-03] DKG-tools: added options "-i" and "-o" for dkg-decrypt
+* [2017-06-02] DKG-tools: added support for other symmetric algorithms
+* [2017-06-02] RFC4880: added generic SymmetricDecrypt() for full RFC compliance
+* [2017-05-25] release 1.3.1 of LibTMCG
+* [2017-05-25] VSSHE: added a simple variant of SetupGenerators_publiccoin()
+* [2017-05-19] DKG: use very strong randomness from libgcrypt (long term keys)
+* [2017-05-15] RFC4880: added implementation of Partial Body Lengths
+* [2017-05-13] release 1.3.0 of LibTMCG
+* [2017-05-13] moved to GNU FDL v1.3
+* [2017-05-04] fixed RBC implementation for artificial case where t=0
+* [2017-04-27] improved timing attack resilience of mpz_spowm()
+* [2017-04-26] improved timing attack resilience of mpz_fspowm()
+* [2017-04-23] AIO: bugfixes and change to EtA paradigma 
+* [2017-04-12] fixed some small bugs found by coverity scan
+* [2017-03-31] added simple manpages for DKG-tools
+* [2017-03-26] added general interpolation for DKG and changed dkg-decrypt 
+* [2017-02-04] added check (t-mpz) to spot optimizations of mpz_fspowm()
+* [2017-01-25] DKG, ASTC: fixed robustness issues in Generate() and Share()
+* [2017-01-21] VTMF: added generation and check of canonical group generator
+* [2017-01-20] VTMF: improved NIZK generation (added group parameter hashing)
+* [2016-12-31] release 1.2.0 of LibTMCG
+* [2016-12-24] added GNUnet integration for DKG-tools
+* [2016-11-14] added a very limited interface for OpenPGP (cf. RFC 4880) 
+* [2016-03-26] improved complexity of hash function g() used as random oracle
+* [2016-03-24] mpz_shash* using now hash function g() instead of h()
+* [2016-03-20] protection against malicious verifiers through EDCF for SHVZK
+* [2016-03-02] provides a distributed coin-flipping (EDCF) protocol
+* [2016-02-27] provides a distributed signature scheme (NTS)
+* [2016-02-24] provides a reliable broadcast (RBC) protocol
+* [2016-02-15] provides a distributed key generation (DKG) protocol
+* [2016-02-07] provides a non-interactive version of the rotation protocol
+* [2016-02-07] provides a non-interactive version of the shuffle protocol
+* [2016-02-06] new global symbol TMCG_MAX_FPOWM_N for restricting memory usage
+* [2016-02-02] increase some security and bounding parameters
+* [2016-01-31] implements an 1-out-of-n oblivious transfer protocol
+* [2016-01-16] added configure option --with-gmp=<path>
+* [2015-12-30] increase default security parameters to state of the art values
+* [2015-12-25] release 1.1.3 of LibTMCG
+* [2015-07] several files changed to reflect the new situation
+* [2009-11-21] feature "--disable-forking" for ./configure added
+* [2009-11-21] syntax error in libTMCG.texi fixed
+* [2009-08-07] release 1.1.2 of LibTMCG
+* small bugfixes for GCC 4.3.x
+* [2007-05-05] release 1.1.1 of LibTMCG
+* [2007-05-05] security fix (trivial group generator attack)
+* [2007-04-16] release 1.1.0 of LibTMCG
+* [2007-04-15] changed interface of TMCG_SecretKey to allow non-NIZK keys
+* [2007-04-13] use faster shuffle algorithm in TMCG_CreateStackSecret(...)
+* [2007-03-22] release 1.0.1 of LibTMCG
+* [2007-03-21] function version_libTMCG() added
+* [2007-03-20] security fix (avoid modulo bias in TMCG_CreateStackSecret(...))
+* [2006-04-13] initial release 1.0.0 of LibTMCG
